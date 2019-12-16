@@ -5,7 +5,8 @@
 """
 import numpy as np
 import pandas as pd
-import sklearn.model_selection as train_test_split
+from sklearn.model_selection import train_test_split
+from sklearn.impute import SimpleImputer
 
 # Function to drop weight columns
 def drop_weights(data_frame):
@@ -33,7 +34,12 @@ def imputer(data_frame):
     data_frame['HINCP'] = data_frame.HINCP * \
                           data_frame.ADJINC / (10**6) 
     data_frame = data_frame.drop('FINCP', axis = 1)
-    
+    imptr = SimpleImputer(strategy = 'constant', fill_value = 99)
+    data_frame['WIF'] = imptr(data_frame.WIF)
+    data_frame['WORKSTAT'] = imptr(data_frame.WORKSTAT)
+    data_frame = data_frame.drop('VALP', axis = 1)
+    imptr = SimpleImputer(strategy = 'constant', fill_value = 0)
+    data_frame['VEH'] = imptr(data_frame.VEH)
     
 # Import the nationwide data-it is presented in two files 
 file_dir = '/Users/flatironschol/FIS-Projects/Module5/data/'
@@ -44,3 +50,7 @@ df_a = drop_allocations(df_a)
 df_b = drop_weights(df_b)
 df_b = drop_allocations(df_b)
 df = pd.concat((df_a, df_b), axis = 0) 
+y = df.FS
+X = df.drop('FS', axis = 1)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.25, \
+                                                    stratify = y, random_state = 1007)
