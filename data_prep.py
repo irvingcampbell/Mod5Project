@@ -3,7 +3,6 @@
 """
 @authors: 
 """
-import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.impute import SimpleImputer
@@ -69,9 +68,9 @@ def imputer(data_frame):
                      'FULFP', 'FULP', 'GASFP', 'GASP', 'HFL', 'INSP', 'MHP', \
                      'RNTM', 'RNTP', 'WATFP', 'WATP', 'GRNTP', 'SMOCP']
     data_frame = data_frame[relevant_cols]
-    data_frame = data_frame.dropna(subset = ['FS', 'HINCP'])
+    data_frame = data_frame.dropna(subset = ['FS', 'HINCP'])    
     data_frame = imptr.fit_transform(data_frame)
-    return data_frame
+    return pd.DataFrame(data_frame, columns = relevant_cols)
     
 # Import the nationwide data-it is presented in two files 
 file_dir = '/Users/flatironschol/FIS-Projects/Module5/data/'
@@ -82,6 +81,9 @@ df_a = drop_allocations(df_a)
 df_b = drop_weights(df_b)
 df_b = drop_allocations(df_b)
 df = pd.concat((df_a, df_b), axis = 0) 
+df = recode(df)
+df = imputer(df)
+df = pd.DataFrame(df, columns = cols) 
 y = df.FS
 X = df.drop('FS', axis = 1)
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.25, \
