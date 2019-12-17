@@ -83,8 +83,3 @@ df_b = drop_allocations(df_b)
 df = pd.concat((df_a, df_b), axis = 0) 
 df = recode(df)
 df = imputer(df)
-df = pd.DataFrame(df, columns = cols) 
-y = df.FS
-X = df.drop('FS', axis = 1)
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.25, \
-                                                    stratify = y, random_state = 1007)
