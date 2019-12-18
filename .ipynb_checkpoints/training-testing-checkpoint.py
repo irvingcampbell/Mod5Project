@@ -58,6 +58,8 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, \
                                                     stratify = y, \
                                                     test_size = 0.25, \
                                                     random_state = 1007)
+sm = SMOTE()
+X_train, y_train = sm.fit_resample(X_train, y_train)
 # Scaling and one-hot-encoding of the training set
 cont_feats = ['HINCP', 'VEH', 'NP', 'NPF', 'NRC', 'BDSP', 'BLD', 'RMSP', \
               'YBL', 'CONP', 'ELEP', 'GASP', 'FULP', 'INSP', 'MHP', \
@@ -71,8 +73,7 @@ encdr.fit(X_train[cat_feats])
 X_train_cat = encoder_transform(encdr, X_train[cat_feats])
 X_train = pd.concat((X_train_cont, X_train_cat), axis = 1)
 y_train = y_train.astype('int')
-sm = SMOTE()
-X_train, y_train = sm.fit_resample(X_train, y_train)
+
 # X_train.to_csv(f'{file_dir}X_train.csv')
 # y_train.to_csv(f'{file_dir}y_train.csv')
 
@@ -87,23 +88,23 @@ y_test = y_test.astype('int')
 
 # Logistical regression
 lr_clf = LogisticRegression(random_state=1007, solver='saga')
-lr_clf.fit(X_train.drop(['GRNTP', 'NP'], axis = 1), y_train)
-y_test_hat = lr_clf.predict(X_test.drop(['GRNTP', 'NP'], axis = 1))
+lr_clf.fit(X_train, y_train)
+y_train_hat = lr_clf.predict(X_train)
+print(classification_report(y_train, y_train_hat))
+print(confusion_matrix(y_train, y_train_hat))
+y_test_hat = lr_clf.predict(X_test)
 print(classification_report(y_test, y_test_hat))
 print(confusion_matrix(y_test, y_test_hat))
 
 # Random forest classifier
 rf_clf = RandomForestClassifier()
 rf_clf.fit(X_train, y_train)
+y_train_hat = rf_clf.predict(X_train)
+print(classification_report(y_train, y_train_hat))
+print(confusion_matrix(y_train, y_train_hat))
 y_test_hat = rf_clf.predict(X_test)
 print(classification_report(y_test, y_test_hat))
 print(confusion_matrix(y_test, y_test_hat))
-rf_feat_importance = pd.DataFrame(zip(X_train.columns, \
-                                      rf_clf.feature_importances_), \
-                                  columns = ['Feature', 'Score'])
-rf_feat_importance = rf_feat_importance.sort_values(by = 'Score', \
-                                                    ascending = False)
-rf_feat_importance.to_csv(f'{file_dir}rf_feat_importance.csv')
 
 # Gridsearch for rf_clf
 params = {'n_estimators': [10, 100, 200],
@@ -118,20 +119,20 @@ print(gs.best_params_)
 
 # Linear SVC 
 svm_clf = LinearSVC()
-svm_clf.fit(X_train, y_train)
-y_test_hat = svm_clf.predict(X_test)
+svm_clf.fit(X_train.values, y_train.values)
+y_train_hat = svm_clf.predict(X_train.values)
+print(classification_report(y_train, y_train_hat))
+print(confusion_matrix(y_train, y_train_hat))
+y_test_hat = svm_clf.predict(X_test.values)
 print(classification_report(y_test, y_test_hat))
 print(confusion_matrix(y_test, y_test_hat))
 
 # AdaBoost
 ada_clf = AdaBoostClassifier(DecisionTreeClassifier(max_depth = 4))
-ada_clf.fit(X_train, y_train)
-y_test_hat = ada_clf.predict(X_test)
+ada_clf.fit(X_train_cont, y_train)
+y_train_hat = ada_clf.predict(X_train_cont)
+print(classification_report(y_train, y_train_hat))
+print(confusion_matrix(y_train, y_train_hat))
+y_test_hat = ada_clf.predict(X_test_cont)
 print(classification_report(y_test, y_test_hat))
 print(confusion_matrix(y_test, y_test_hat))
-ada_feat_importance = pd.DataFrame(zip(X_train.columns, \
-                                       ada_clf.feature_importances_), \
-                                   columns = ['Feature', 'Score'])
-ada_feat_importance = ada_feat_importance.sort_values(by = 'Score', \
-                                                      ascending = False)
-ada_feat_importance.to_csv(f'{file_dir}ada_feat_importance.csv')
