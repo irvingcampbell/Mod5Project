@@ -11,6 +11,8 @@ sns.set_context("talk")
 sns.set_style("white")
 
 fig, ax1 = plt.subplots(1, 1, figsize = (10, 6))
+bin_snap = df_.loc[df_.FS == 2].HINCP.max() / 5000
+bin_rest = df_.loc[df_.FS == 1].HINCP.max() / 5000
 sns.distplot(df_.loc[df_.FS == 2].HINCP, bins = 500, ax = ax1, \
              kde = False, norm_hist = True, label = 'SNAP recipient', \
              color = 'blue')

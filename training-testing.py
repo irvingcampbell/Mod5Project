@@ -10,7 +10,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import classification_report, confusion_matrix, roc_curve, auc
 from sklearn.model_selection import GridSearchCV
 from sklearn.svm import LinearSVC
 from sklearn.linear_model import LogisticRegression
@@ -46,13 +46,13 @@ def encoder_transform(encoder, X):
 
 file_dir = '/Users/flatironschol/FIS-Projects/Module5/data/'
 df = pd.read_csv(f'{file_dir}df.csv', index_col = 0)
-# df_ = df.groupby('FS').apply(lambda x: x.sample(frac = 0.25))
-# df_.index = df_.index.droplevel(0)        
+df_ = df.groupby('FS').apply(lambda x: x.sample(frac = 0.25))
+df_.index = df_.index.droplevel(0)        
 # Focus only on California
-df_ = df.loc[df.ST == 6]
+# df_ = df.loc[df.ST == 6]
 y = df_.FS
 X = df_.drop(['FS', 'SERIALNO', 'REGION', 'DIVISION', 'ST', \
-              'HOTWAT', 'RWATPR', 'PLMPRP'], axis = 1)
+              'PUMA', 'HOTWAT', 'RWATPR', 'PLMPRP'], axis = 1)
 # Split the data into test and training samples--stratify by SNAP recipiency
 X_train, X_test, y_train, y_test = train_test_split(X, y, \
                                                     stratify = y, \
@@ -122,6 +122,56 @@ svm_clf.fit(X_train, y_train)
 y_test_hat = svm_clf.predict(X_test)
 print(classification_report(y_test, y_test_hat))
 print(confusion_matrix(y_test, y_test_hat))
+y_score = svm_clf.decision_function(X_test)
+fpr, tpr, thresholds = roc_curve(y_test, y_score, pos_label = 2)
+print('AUC: {}'.format(auc(fpr, tpr)))
+import matplotlib.pyplot as plt
+import seaborn as sns
+%matplotlib inline
+
+# Seaborn's beautiful styling
+sns.set_style('darkgrid', {'axes.facecolor': '0.9'})
+
+print('AUC: {}'.format(auc(fpr, tpr)))
+plt.figure(figsize=(10, 8))
+lw = 2
+plt.plot(fpr, tpr, color='darkorange',
+         lw=lw, label='ROC curve')
+plt.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
+plt.xlim([0.0, 1.0])
+plt.ylim([0.0, 1.05])
+plt.yticks([i/20.0 for i in range(21)])
+plt.xticks([i/20.0 for i in range(21)])
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('Receiver operating characteristic (ROC) Curve')
+plt.legend(loc='lower right')
+plt.show()
+
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.svm import LinearSVC
+import matplotlib.pyplot as plt
+def plot_coefficients(classifier, feature_names, top_features=20):
+ coef = classifier.coef_.ravel()
+ top_positive_coefficients = np.argsort(coef)[-top_features:]
+ top_negative_coefficients = np.argsort(coef)[:top_features]
+ top_coefficients = np.hstack([top_negative_coefficients, top_positive_coefficients])
+ # create plot
+ plt.figure(figsize=(15, 5))
+ colors = [‘red’ if c < 0 else ‘blue’ for c in coef[top_coefficients]]
+ plt.bar(np.arange(2 * top_features), coef[top_coefficients], color=colors)
+ feature_names = np.array(feature_names)
+ plt.xticks(np.arange(1, 1 + 2 * top_features), feature_names[top_coefficients], rotation=60, ha=’right’)
+ plt.show()
+cv = CountVectorizer()
+cv.fit(data)
+print len(cv.vocabulary_)
+print cv.get_feature_names()
+X_train = cv.transform(data)
+
+svm = LinearSVC()
+svm.fit(X_train, target)
+plot_coefficients(svm, cv.get_feature_names())
 
 # AdaBoost
 ada_clf = AdaBoostClassifier(DecisionTreeClassifier(max_depth = 4))
