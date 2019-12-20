@@ -10,27 +10,14 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import classification_report, confusion_matrix, roc_curve, auc, plot_confusion_matrix
 from sklearn.model_selection import GridSearchCV
 from sklearn.svm import LinearSVC
 from sklearn.linear_model import LogisticRegression
 from imblearn.over_sampling import SMOTE
 
-# Function to calculate VIF scores
-def calculate_vif(X, thresh=8):
-    feats = X.columns
-    while len(feats) >= 2:
-        vif = [variance_inflation_factor(X[feats].values, i) for i in range(len(feats))]
-        if max(vif) > thresh:
-            maxloc = vif.index(max(vif))
-            print('dropping \'' + feats[maxloc] + '\' at index: ' + str(maxloc))
-            feats.remove(feats[maxloc])
-    print('Remaining variables:')
-    print(feats)
-    return X[feats]
 
 # Function to transform categorical variables
-    
 def encoder_transform(encoder, X):
     X_encoded = encoder.transform(X).toarray()
     encoded_feats = list(encoder.get_feature_names())
@@ -46,20 +33,20 @@ def encoder_transform(encoder, X):
 
 file_dir = '/Users/flatironschol/FIS-Projects/Module5/data/'
 df = pd.read_csv(f'{file_dir}df.csv', index_col = 0)
-# df_ = df.groupby('FS').apply(lambda x: x.sample(frac = 0.25))
-# df_.index = df_.index.droplevel(0)        
-# Focus only on California
-df_ = df.loc[df.ST == 6]
+# Sample 1/4 of the data
+df_ = df.groupby('FS').apply(lambda x: x.sample(frac = 0.25))
+df_.index = df_.index.droplevel(0)
+# Plot income distribution for SNAP participants and the rest
+# of the population
+income_distribution_plot(df_)
+# Drop geographical features and split the data into training and test
 y = df_.FS
-X = df_.drop(['FS', 'SERIALNO', 'REGION', 'DIVISION', 'ST', \
-              'HOTWAT', 'RWATPR', 'PLMPRP'], axis = 1)
+X = df_.drop(['FS', 'SERIALNO', 'REGION', 'DIVISION', 'ST', 'PUMA'], axis = 1)
 # Split the data into test and training samples--stratify by SNAP recipiency
 X_train, X_test, y_train, y_test = train_test_split(X, y, \
                                                     stratify = y, \
                                                     test_size = 0.25, \
                                                     random_state = 1007)
-sm = SMOTE()
-X_train, y_train = sm.fit_resample(X_train, y_train)
 # Scaling and one-hot-encoding of the training set
 cont_feats = ['HINCP', 'VEH', 'NP', 'NPF', 'NRC', 'BDSP', 'BLD', 'RMSP', \
               'YBL', 'CONP', 'ELEP', 'GASP', 'FULP', 'INSP', 'MHP', \
@@ -73,7 +60,8 @@ encdr.fit(X_train[cat_feats])
 X_train_cat = encoder_transform(encdr, X_train[cat_feats])
 X_train = pd.concat((X_train_cont, X_train_cat), axis = 1)
 y_train = y_train.astype('int')
-
+sm = SMOTE()
+X_train, y_train = sm.fit_resample(X_train, y_train)
 # X_train.to_csv(f'{file_dir}X_train.csv')
 # y_train.to_csv(f'{file_dir}y_train.csv')
 
@@ -88,51 +76,71 @@ y_test = y_test.astype('int')
 
 # Logistical regression
 lr_clf = LogisticRegression(random_state=1007, solver='saga')
-lr_clf.fit(X_train, y_train)
-y_train_hat = lr_clf.predict(X_train)
-print(classification_report(y_train, y_train_hat))
-print(confusion_matrix(y_train, y_train_hat))
-y_test_hat = lr_clf.predict(X_test)
+lr_clf.fit(X_train.drop(['GRNTP', 'NP'], axis = 1), y_train)
+y_test_hat = lr_clf.predict(X_test.drop(['GRNTP', 'NP'], axis = 1))
 print(classification_report(y_test, y_test_hat))
 print(confusion_matrix(y_test, y_test_hat))
 
 # Random forest classifier
 rf_clf = RandomForestClassifier()
 rf_clf.fit(X_train, y_train)
-y_train_hat = rf_clf.predict(X_train)
-print(classification_report(y_train, y_train_hat))
-print(confusion_matrix(y_train, y_train_hat))
 y_test_hat = rf_clf.predict(X_test)
 print(classification_report(y_test, y_test_hat))
 print(confusion_matrix(y_test, y_test_hat))
 
-# Gridsearch for rf_clf
-params = {'n_estimators': [10, 100, 200],
-          'max_depth': [5, 10, None],
-          'min_samples_split': [2, 5, 10],
-          'min_samples_leaf': [1, 5, 10],
-          'max_features': ['auto', None]}
-gs = GridSearchCV(rf_clf, params, scoring = 'recall', cv = 3, n_jobs = -1)
-gs.fit(X_train, y_train)
-print(gs.best_score_)
-print(gs.best_params_)
 
 # Linear SVC 
 svm_clf = LinearSVC()
-svm_clf.fit(X_train.values, y_train.values)
-y_train_hat = svm_clf.predict(X_train.values)
-print(classification_report(y_train, y_train_hat))
-print(confusion_matrix(y_train, y_train_hat))
-y_test_hat = svm_clf.predict(X_test.values)
+svm_clf.fit(X_train, y_train)
+y_test_hat = svm_clf.predict(X_test)
 print(classification_report(y_test, y_test_hat))
 print(confusion_matrix(y_test, y_test_hat))
+y_score = svm_clf.decision_function(X_test)
+fpr, tpr, thresholds = roc_curve(y_test, y_score, pos_label = 2)
+print('AUC: {}'.format(auc(fpr, tpr)))
+roc_plot(fpr, tpr)
+
+
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+%matplotlib inline
+
+# Seaborn's beautiful styling
+sns.set_style('darkgrid', {'axes.facecolor': '0.9'})
+
+print('AUC: {}'.format(auc(fpr, tpr)))
+
+
+
+
+
+    # known bug in matplotlib chops off a portion of the
+    # top and bottom rows of heat maps.  This section of
+    # code recovers the top and bottom limits and moves them
+    # so that the map displays appropriately.
+bottom, top = plt.ylim()
+bottom += 0.5
+top -= 0.5
+plt.ylim(bottom, top)
+plt.show()
+    
+from sklearn.feature_extraction.text import CountVectorizer
+import matplotlib.pyplot as plt
+import numpy as np
+coef = svm_clf.coef_.ravel()
+
+
 
 # AdaBoost
 ada_clf = AdaBoostClassifier(DecisionTreeClassifier(max_depth = 4))
-ada_clf.fit(X_train_cont, y_train)
-y_train_hat = ada_clf.predict(X_train_cont)
-print(classification_report(y_train, y_train_hat))
-print(confusion_matrix(y_train, y_train_hat))
-y_test_hat = ada_clf.predict(X_test_cont)
+ada_clf.fit(X_train, y_train)
+y_test_hat = ada_clf.predict(X_test)
 print(classification_report(y_test, y_test_hat))
 print(confusion_matrix(y_test, y_test_hat))
+ada_feat_importance = pd.DataFrame(zip(X_train.columns, \
+                                       ada_clf.feature_importances_), \
+                                   columns = ['Feature', 'Score'])
+ada_feat_importance = ada_feat_importance.sort_values(by = 'Score', \
+                                                      ascending = False)
+ada_feat_importance.to_csv(f'{file_dir}ada_feat_importance.csv')

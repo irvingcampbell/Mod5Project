@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-@authors: 
+This code is for FIS Module 5 Project.
+In this project, we examine the efficiency and effectiveness of 
+SNAP, the nation's anti-hunger program.
+Specifically, the code cleans the raw ACS data (2018) for the
+entire US.
 """
 import pandas as pd
 from sklearn.impute import SimpleImputer

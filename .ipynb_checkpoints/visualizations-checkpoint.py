@@ -8,7 +8,6 @@ Specifically, the code provides descriptive visualizations.
 """
 import matplotlib.pyplot as plt
 import seaborn as sns
-import numpy as np
 
 sns.set_context("talk")
 sns.set_style("white")
@@ -54,13 +53,12 @@ def roc_plot(fpr, tpr):
 # Plot confusion matrix
 def confusion_matrix_plot(cm):
     # create normalized confusion matrix <cm_nor>
-    # cm_nor = np.zeros((cm.shape[0], cm.shape[1]))
-    # for col in range(cm.shape[1]):
-    #    cm_nor[:, col] = (cm[:, col] / sum(cm[:, col]))
-    #    plt.ylim(-10, 10)
+    cm_nor = np.zeros((cm.shape[0], cm.shape[1]))
+    for col in range(cm.shape[1]):
+        cm_nor[:, col] = (cm[:, col] / sum(cm[:, col]))
+        plt.ylim(-10, 10)
     # create normalized confusion matrix heat map
-    # sns.heatmap(cm_nor, cmap="Blues", annot=True, annot_kws={"size": 14})
-    sns.heatmap(cm, cmap="Blues", annot=True, annot_kws={"size": 14})
+    sns.heatmap(cm_nor, cmap="Blues", annot=True, annot_kws={"size": 14})
     locs, labels = plt.xticks()
     plt.xticks(locs, ("NO", "YES"))
     locs, labels = plt.yticks()
@@ -73,7 +71,7 @@ def confusion_matrix_plot(cm):
     return
 
 # Plot important features for LinearSVC
-def important_features_plot(X_train, coef):
+def important_features_plot(coef):
     top_features = 5
     top_positive_coefficients = np.argsort(coef)[-top_features:]
     top_negative_coefficients = np.argsort(coef)[:top_features]
