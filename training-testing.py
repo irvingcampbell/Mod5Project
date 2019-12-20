@@ -10,27 +10,14 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.metrics import classification_report, confusion_matrix, roc_curve, auc
+from sklearn.metrics import classification_report, confusion_matrix, roc_curve, auc, plot_confusion_matrix
 from sklearn.model_selection import GridSearchCV
 from sklearn.svm import LinearSVC
 from sklearn.linear_model import LogisticRegression
 from imblearn.over_sampling import SMOTE
 
-# Function to calculate VIF scores
-def calculate_vif(X, thresh=8):
-    feats = X.columns
-    while len(feats) >= 2:
-        vif = [variance_inflation_factor(X[feats].values, i) for i in range(len(feats))]
-        if max(vif) > thresh:
-            maxloc = vif.index(max(vif))
-            print('dropping \'' + feats[maxloc] + '\' at index: ' + str(maxloc))
-            feats.remove(feats[maxloc])
-    print('Remaining variables:')
-    print(feats)
-    return X[feats]
 
 # Function to transform categorical variables
-    
 def encoder_transform(encoder, X):
     X_encoded = encoder.transform(X).toarray()
     encoded_feats = list(encoder.get_feature_names())
@@ -46,13 +33,16 @@ def encoder_transform(encoder, X):
 
 file_dir = '/Users/flatironschol/FIS-Projects/Module5/data/'
 df = pd.read_csv(f'{file_dir}df.csv', index_col = 0)
+# Sample 1/4 of the data
 df_ = df.groupby('FS').apply(lambda x: x.sample(frac = 0.25))
-df_.index = df_.index.droplevel(0)        
-# Focus only on California
-# df_ = df.loc[df.ST == 6]
+df_.index = df_.index.droplevel(0)
+# Plot income distribution for SNAP participants and the rest
+# of the population
+%run visualizations.py
+income_distribution_plot(df_)
+# Drop geographical features and split the data into training and test
 y = df_.FS
-X = df_.drop(['FS', 'SERIALNO', 'REGION', 'DIVISION', 'ST', \
-              'PUMA', 'HOTWAT', 'RWATPR', 'PLMPRP'], axis = 1)
+X = df_.drop(['FS', 'SERIALNO', 'REGION', 'DIVISION', 'ST', 'PUMA'], axis = 1)
 # Split the data into test and training samples--stratify by SNAP recipiency
 X_train, X_test, y_train, y_test = train_test_split(X, y, \
                                                     stratify = y, \
@@ -93,89 +83,15 @@ print(classification_report(y_test, y_test_hat))
 print(confusion_matrix(y_test, y_test_hat))
 
 # Random forest classifier
-rf_clf = RandomForestClassifier()
+rf_clf = RandomForestClassifier(random_state = 1007)
 rf_clf.fit(X_train, y_train)
 y_test_hat = rf_clf.predict(X_test)
 print(classification_report(y_test, y_test_hat))
 print(confusion_matrix(y_test, y_test_hat))
-rf_feat_importance = pd.DataFrame(zip(X_train.columns, \
-                                      rf_clf.feature_importances_), \
-                                  columns = ['Feature', 'Score'])
-rf_feat_importance = rf_feat_importance.sort_values(by = 'Score', \
-                                                    ascending = False)
-rf_feat_importance.to_csv(f'{file_dir}rf_feat_importance.csv')
 
-# Gridsearch for rf_clf
-params = {'n_estimators': [10, 100, 200],
-          'max_depth': [5, 10, None],
-          'min_samples_split': [2, 5, 10],
-          'min_samples_leaf': [1, 5, 10],
-          'max_features': ['auto', None]}
-gs = GridSearchCV(rf_clf, params, scoring = 'recall', cv = 3, n_jobs = -1)
-gs.fit(X_train, y_train)
-print(gs.best_score_)
-print(gs.best_params_)
-
-# Linear SVC 
-svm_clf = LinearSVC()
-svm_clf.fit(X_train, y_train)
-y_test_hat = svm_clf.predict(X_test)
-print(classification_report(y_test, y_test_hat))
-print(confusion_matrix(y_test, y_test_hat))
-y_score = svm_clf.decision_function(X_test)
-fpr, tpr, thresholds = roc_curve(y_test, y_score, pos_label = 2)
-print('AUC: {}'.format(auc(fpr, tpr)))
-import matplotlib.pyplot as plt
-import seaborn as sns
-%matplotlib inline
-
-# Seaborn's beautiful styling
-sns.set_style('darkgrid', {'axes.facecolor': '0.9'})
-
-print('AUC: {}'.format(auc(fpr, tpr)))
-plt.figure(figsize=(10, 8))
-lw = 2
-plt.plot(fpr, tpr, color='darkorange',
-         lw=lw, label='ROC curve')
-plt.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
-plt.xlim([0.0, 1.0])
-plt.ylim([0.0, 1.05])
-plt.yticks([i/20.0 for i in range(21)])
-plt.xticks([i/20.0 for i in range(21)])
-plt.xlabel('False Positive Rate')
-plt.ylabel('True Positive Rate')
-plt.title('Receiver operating characteristic (ROC) Curve')
-plt.legend(loc='lower right')
-plt.show()
-
-from sklearn.feature_extraction.text import CountVectorizer
-import matplotlib.pyplot as plt
-import numpy as np
-coef = svm_clf.coef_.ravel()
-top_features = 5
-top_positive_coefficients = np.argsort(coef)[-top_features:]
-top_negative_coefficients = np.argsort(coef)[:top_features]
-top_coefficients = np.hstack([top_negative_coefficients, top_positive_coefficients])
-    # create plot
-plt.figure(figsize=(15, 5))
-colors = ['r' if c < 0 else 'b' for c in coef[top_coefficients]]
-plt.bar(np.arange(2 * top_features), coef[top_coefficients], color=colors)
-feature_names = np.array(X_train.columns)
-plt.xticks(np.arange(1, 1 + 2 * top_features), feature_names[top_coefficients], rotation=60)
-plt.show()
-
-cv = CountVectorizer()
-cv.fit(data)
-print len(cv.vocabulary_)
-print cv.get_feature_names()
-X_train = cv.transform(data)
-
-svm = LinearSVC()
-svm.fit(X_train, target)
-plot_coefficients(svm, cv.get_feature_names())
 
 # AdaBoost
-ada_clf = AdaBoostClassifier(DecisionTreeClassifier(max_depth = 4))
+ada_clf = AdaBoostClassifier(DecisionTreeClassifier(max_depth = 4), random_state = 1007)
 ada_clf.fit(X_train, y_train)
 y_test_hat = ada_clf.predict(X_test)
 print(classification_report(y_test, y_test_hat))
@@ -186,3 +102,25 @@ ada_feat_importance = pd.DataFrame(zip(X_train.columns, \
 ada_feat_importance = ada_feat_importance.sort_values(by = 'Score', \
                                                       ascending = False)
 ada_feat_importance.to_csv(f'{file_dir}ada_feat_importance.csv')
+
+# Linear SVC 
+svm_clf = LinearSVC(fit_intercept = 'False', random_state = 1007)
+svm_clf.fit(X_train, y_train)
+y_test_hat = svm_clf.predict(X_test)
+confusion_matrix(y_test, y_test_hat)
+print(classification_report(y_test, y_test_hat))
+print(cm)
+
+# Hyperparameter tuning
+param_dist = {'C': [0.1, 10]}
+gs = GridSearchCV(svm_clf, param_dist, cv = 3, scoring = 'recall')
+gs.fit(X_train, y_train)
+gs.best_params_
+
+y_score = svm_clf.decision_function(X_test)
+fpr, tpr, thresholds = roc_curve(y_test, y_score, pos_label = 2)
+print('AUC: {}'.format(auc(fpr, tpr)))
+confusion_matrix_plot(cm)
+roc_plot(fpr, tpr)
+important_features_plot(X_train, svm_clf.coef_.ravel())
+
