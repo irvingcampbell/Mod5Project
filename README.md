@@ -4,7 +4,7 @@ Date: December 2019
 
 Project Members: Irving Campbell and Anil Onal
 
-SNAP (Supplamental Nutritional Assistance Program) is the nation's anti-hunger program operated by the USDA and implemented locally. USDA states that there are 40 million people, nationwide, who are enrolled to the program. Moreover, there are 20 million more, who would be eligable, but are not enrolled.
+SNAP (Supplemental Nutritional Assistance Program) is the nation's anti-hunger program operated by the USDA and implemented locally. USDA states that there are 40 million people, nationwide, who are enrolled to the program. Moreover, there are 20 million more, who would be eligable, but are not enrolled.
 
 Given this context, we aim to answer two questions:
 1. Is SNAP reaching enough people?
